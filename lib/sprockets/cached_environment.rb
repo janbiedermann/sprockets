@@ -15,8 +15,8 @@ module Sprockets
       initialize_configuration(environment)
 
       @cache   = environment.cache
-      @stats   = Hash.new { |h, k| h[k] = _stat(k) }
-      @entries = Hash.new { |h, k| h[k] = _entries(k) }
+      @stats   = Hash.new { |h, k| h[k] = cached_stat(k) }
+      @entries = Hash.new { |h, k| h[k] = cached_entries(k) }
       @uris    = Hash.new { |h, k| h[k] = _load(k) }
 
       @processor_cache_keys  = Hash.new { |h, k| h[k] = _processor_cache_key(k) }
@@ -29,10 +29,26 @@ module Sprockets
     end
     alias_method :index, :cached
 
+    def cached_entries(path)
+      if path.start_with?(root)
+        _entries(path)
+      else
+        Sprockets::Base.global_entries_cache.fetch(path) { _entries(path) }
+      end
+    end
+
     # Internal: Cache Environment#entries
     alias_method :_entries, :entries
     def entries(path)
       @entries[path]
+    end
+
+    def cached_stat(path)
+      if path.start_with?(root)
+        _stat(path)
+      else
+        Sprockets::Base.global_stat_cache.fetch(path) { _stat(path) }
+      end
     end
 
     # Internal: Cache Environment#stat

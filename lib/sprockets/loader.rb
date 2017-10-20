@@ -53,7 +53,7 @@ module Sprockets
           # loaded from disk.
           if paths
             digest = DigestUtils.digest(resolve_dependencies(paths))
-            if uri_from_cache = cache.get(unloaded.digest_key(digest), true)
+            if uri_from_cache = cache.get(unloaded.digest_key(digest))
               asset_from_cache(UnloadedAsset.new(uri_from_cache, self).asset_key)
             end
           else
@@ -73,7 +73,7 @@ module Sprockets
       # This method converts all "compressed" paths to absolute paths.
       # Returns a hash of values representing an asset
       def asset_from_cache(key)
-        asset = cache.get(key, true)
+        asset = cache.get(key)
         if asset
           asset[:uri]       = expand_from_root(asset[:uri])
           asset[:load_path] = expand_from_root(asset[:load_path])
@@ -240,10 +240,10 @@ module Sprockets
 
         # Unloaded asset and stored_asset now have a different URI
         stored_asset = UnloadedAsset.new(asset[:uri], self)
-        cache.set(stored_asset.asset_key, cached_asset, true)
+        cache.set(stored_asset.asset_key, cached_asset)
 
         # Save the new relative path for the digest key of the unloaded asset
-        cache.set(unloaded.digest_key(asset[:dependencies_digest]), stored_asset.compressed_path, true)
+        cache.set(unloaded.digest_key(asset[:dependencies_digest]), stored_asset.compressed_path)
       end
 
 

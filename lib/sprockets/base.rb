@@ -1,6 +1,7 @@
 require 'sprockets/asset'
 require 'sprockets/bower'
 require 'sprockets/cache'
+require 'sprockets/cache/memory_store'
 require 'sprockets/configuration'
 require 'sprockets/digest_utils'
 require 'sprockets/errors'
@@ -34,6 +35,18 @@ module Sprockets
       @cache = Cache.new(cache, logger)
     end
 
+    def self.global_stat_cache
+      @@stat_cache ||= Cache.new(Hash.new)
+    end
+
+    def self.global_entries_cache
+      @@entries_cache ||= Cache.new(Hash.new)
+    end
+
+    def self.global_static_asset_cache
+      @@static_ass_cache ||= Cache.new(Hash.new)
+    end
+
     # Return an `Cached`. Must be implemented by the subclass.
     def cached
       raise NotImplementedError
@@ -63,7 +76,12 @@ module Sprockets
     def find_asset(path, options = {})
       uri, _ = resolve(path, options.merge(compat: false))
       if uri
-        load(uri)
+        scheme, _, uri_path, _ = split_file_uri(uri)
+        if scheme == 'file' && !uri_path.start_with?(root)
+          Sprockets::Base.global_static_asset_cache.fetch(uri) { load(uri) }
+        else
+          load(uri)
+        end
       end
     end
 
@@ -77,7 +95,12 @@ module Sprockets
       stack = asset.links.to_a
 
       while uri = stack.shift
-        yield asset = load(uri)
+        scheme, _, uri_path, _ = split_file_uri(uri)
+        yield asset = if scheme == 'file' && !uri_path.start_with?(root)
+                        Sprockets::Base.global_static_asset_cache.fetch(uri) { load(uri) }
+                      else
+                        load(uri)
+                      end
         stack = asset.links.to_a + stack
       end
 
