@@ -4,7 +4,6 @@ require 'fileutils'
 require 'sprockets/cache'
 require 'sprockets/cache/file_store'
 require 'sprockets/cache/memory_store'
-require 'sprockets/cache/null_store'
 
 module CacheStoreNullTests
   def test_read
@@ -69,20 +68,6 @@ module CacheStoreTests
     result = @store.fetch("user") { "josh" }
     assert_equal "josh", result
   end
-end
-
-class TestNullStore < MiniTest::Test
-  def setup
-    @_store = Sprockets::Cache::NullStore.new
-    @store = Sprockets::Cache.new(Sprockets::Cache::NullStore.new)
-  end
-
-  def test_inspect
-    assert_equal "#<Sprockets::Cache local=#<Sprockets::Cache::MemoryStore size=0/1024> store=#<Sprockets::Cache::NullStore>>", @store.inspect
-    assert_equal "#<Sprockets::Cache::NullStore>", @_store.inspect
-  end
-
-  include CacheStoreNullTests
 end
 
 class TestMemoryStore < MiniTest::Test
