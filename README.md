@@ -4,6 +4,28 @@ Sprockets is a Ruby library for compiling and serving web assets.
 It features declarative dependency management for JavaScript and CSS
 assets, as well as a powerful preprocessor pipeline that allows you to
 write assets in languages like CoffeeScript, Sass and SCSS.
+## For improved performance with rails and opal-ruby, ruby-hperloop
+
+In your Gemfile:
+``` ruby
+gem 'sprockets', git: 'https://github.com/janbiedermann/sprockets', branch: '3.x_perf_proper_mega'
+```
+
+In your config/development.rb:
+```ruby
+  # signature: GdbmStore.new(root_dir, max_entries, logger)
+  # root_dir: directory to put the database file in, another GdbmStore needs another directory
+  # max_entries: maximun entries in the database (NOT size in MB)
+  # logger: the logger
+  config.assets.configure do |env|
+    env.cache = Sprockets::Cache::GdbmStore.new(
+      "#{env.root}/tmp/cache/",
+      10000,
+      env.logger
+    )
+  end
+```
+Needs ruby with gdbm. Adjust the 10000 to your needs. Its not memory kb, its objects.
 
 
 ## Installation
