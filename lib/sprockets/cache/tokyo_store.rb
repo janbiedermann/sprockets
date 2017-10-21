@@ -1,9 +1,7 @@
-require 'fileutils'
+require 'tokyocabinet'
 require 'logger'
 require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
-require 'sprockets/cache/memory_store'
-require 'zlib'
 
 module Sprockets
   class Cache
@@ -17,9 +15,9 @@ module Sprockets
     #
     #   ActiveSupport::Cache::FileStore
     #
-    class FileStore
+    class TokyoStore
       # Internal: Default key limit for store.
-      DEFAULT_MAX_SIZE = 25 * 1024 * 1024
+      DEFAULT_MAX_SIZE = 10000
 
       # Internal: Default standard error fatal logger.
       #
@@ -36,11 +34,28 @@ module Sprockets
       # max_size - A Integer of the maximum number of keys the store will hold.
       #            (default: 1000).
       def initialize(root, max_size = DEFAULT_MAX_SIZE, logger = self.class.default_logger)
+        start_time = Time.now
         @root = root
-        @max_size = max_size
-        @gc_size = max_size * 0.75
-        @hash_cache = Cache.new(Hash.new)
         @logger = logger
+        @tokyo = TokyoCabinet::HDB.new
+        @tokyo.setxmsiz(max_size * 128)
+        @tokyo.tune(max_size * 4)
+        @tokyo.open(File.join(root, 'sprockets_cache.tch'), TokyoCabinet::HDB::OWRITER | TokyoCabinet::HDB::OCREAT)
+        at_exit do
+          @tokyo.close
+        end
+        @max_size = max_size
+        @gc_size = max_size * 0.90
+        @hash_cache = {}
+        @access_cache = {}
+        @tokyo.each do |k, v|
+          key = Marshal.load(k)
+          @hash_cache[key] = Marshal.load(v)
+          @access_cache[key] = start_time
+        end
+        gc! if @hash_cache.size > @max_size
+        load_time = Time.now.to_f - start_time.to_f
+        puts "Sprockets Tokyo Cache - max entries: #{@max_size}, current entries: #{@hash_cache.size}, load time: #{(load_time * 1000).to_i}ms"
       end
 
       # Public: Retrieve value from cache.
@@ -51,26 +66,20 @@ module Sprockets
       #
       # Returns Object or nil or the value is not set.
       def get(key)
-        value = @hash_cache.get(key)
+        value = @hash_cache[key]
+        @access_cache[key] = Time.now
 
         if value.nil?
-          path = File.join(@root, "#{expand_key(key)}.cache")
-          value = safe_touch_open(path) do |f|
-            begin
-              EncodingUtils.unmarshaled_deflated(f.read, Zlib::MAX_WBITS)
-            rescue Exception => e
-              @logger.error do
-                "#{self.class}[#{path}] could not be unmarshaled: " +
-                  "#{e.class}: #{e.message}"
-              end
-              nil
+          str = @tokyo.get(Marshal.dump(key))
+          if str
+            major, minor = str[0], str[1]
+            if major && major.ord == Marshal::MAJOR_VERSION &&
+              minor && minor.ord <= Marshal::MINOR_VERSION
+              value = Marshal.load(str)
             end
           end
-          @hash_cache.set(key, value) unless value.nil?
-        elsif !value.nil?
-          FileUtils.touch(File.join(@root, "#{expand_key(key)}.cache"))
+          @hash_cache[key] = value unless value.nil?
         end
-
         value
       end
 
@@ -83,41 +92,12 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        path = File.join(@root, "#{expand_key(key)}.cache")
-
-        # Ensure directory exists
-        FileUtils.mkdir_p File.dirname(path)
-
-        # Check if cache exists before writing
-        exists = File.exist?(path)
-
-        # Serialize value
-        marshaled = Marshal.dump(value)
-
-        # Compress if larger than 4KB
-        if marshaled.bytesize > 4 * 1024
-          deflater = Zlib::Deflate.new(
-            Zlib::BEST_COMPRESSION,
-            Zlib::MAX_WBITS,
-            Zlib::MAX_MEM_LEVEL,
-            Zlib::DEFAULT_STRATEGY
-          )
-          deflater << marshaled
-          raw = deflater.finish
-        else
-          raw = marshaled
-        end
-
-        # Write data
-        PathUtils.atomic_write(path) do |f|
-          f.write(raw)
-          @size = size + f.size unless exists
-        end
-
-        @hash_cache.set(key, value)
+        @tokyo.putasync(Marshal.dump(key), Marshal.dump(value))
+        @hash_cache[key] = value
+        @access_cache[key] = Time.now
 
         # GC if necessary
-        gc! if size > @max_size
+        gc! if @hash_cache.size > @max_size
 
         value
       end
@@ -126,89 +106,30 @@ module Sprockets
       #
       # Returns String.
       def inspect
-        "#<#{self.class} size=#{size}/#{@max_size}>"
+        "#<#{self.class} size=#{@hash_cache.size}/#{@max_size}>"
       end
 
       private
 
-      # Internal: Expand object cache key into a short String key.
-      #
-      # The String should be under 250 characters so its compatible with
-      # Memcache.
-      #
-      # key - JSON serializable key
-      #
-      # Returns a String with a length less than 250 characters.
-      def expand_key(key)
-        digest_key = DigestUtils.pack_urlsafe_base64digest(DigestUtils.digest(key))
-        namespace = digest_key[0, 2]
-        "sprockets/v#{VERSION}/#{namespace}/#{digest_key}"
-      end
-
-      # Internal: Get all cache files along with stats.
-      #
-      # Returns an Array of [String filename, File::Stat] pairs sorted by
-      # mtime.
-      def find_caches
-        Dir.glob(File.join(@root, '**/*.cache')).reduce([]) { |stats, filename|
-          stat = safe_stat(filename)
-          # stat maybe nil if file was removed between the time we called
-          # dir.glob and the next stat
-          stats << [filename, stat] if stat
-          stats
-        }.sort_by { |_, stat| stat.mtime.to_i }
-      end
-
-      def size
-        @size ||= compute_size(find_caches)
-      end
-
-      def compute_size(caches)
-        caches.inject(0) { |sum, (_, stat)| sum + stat.size }
-      end
-
-      def safe_mtime(fn)
-        File.mtime(fn)
-      rescue Errno::ENOENT
-        nil
-      end
-
-      def safe_stat(fn)
-        File.stat(fn)
-      rescue Errno::ENOENT
-        nil
-      end
-
-      def safe_touch_open(path, &block)
-        if File.exist?(path)
-          FileUtils.touch(path)
-          File.open(path, 'rb', &block)
-        end
-      rescue Errno::ENOENT
-        nil
-      end
-
       def gc!
         start_time = Time.now
+        before_size = @hash_cache.size
 
-        caches = find_caches
-        size = compute_size(caches)
+        sorted_kv = @access_cache.sort_by { |k,v| v.to_i }
+        sorted_kv.reverse!
 
-        delete_caches, keep_caches = caches.partition { |_, stat|
-          deleted = size > @gc_size
-          size -= stat.size
-          deleted
-        }
-
-        return if delete_caches.empty?
-
-        FileUtils.remove(delete_caches.map(&:first), force: true)
-        @size = compute_size(keep_caches)
+        while sorted_kv.size > @gc_size
+          kv = sorted_kv.pop
+          @tokyo.delete(Marshal.dump(kv[0]))
+          @hash_cache.delete(kv[0])
+          @access_cache.delete(kv[0])
+        end
+        after_size = @hash_cache.size
 
         @logger.warn do
-          secs = Time.now.to_f - start_time.to_f
-          "#{self.class}[#{@root}] garbage collected " +
-            "#{delete_caches.size} files (#{(secs * 1000).to_i}ms)"
+          time_diff = Time.now - start_time
+          "Sprockets Tokyo Cache [#{File.join(@root, 'sprockets_cache.gdbm')}] garbage collected " +
+            "#{before_size - after_size} entries (#{(time_diff * 1000).to_i}ms)"
         end
       end
     end
