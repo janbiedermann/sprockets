@@ -43,8 +43,12 @@ module Sprockets
       @@entries_cache ||= Cache.new(Hash.new)
     end
 
-    def self.global_static_asset_cache
-      @@static_ass_cache ||= Cache.new(Hash.new)
+    def self.global_dirname_matches_cache
+      @@dirname_matches_cache ||= Cache.new(Hash.new)
+    end
+
+    def self.global_path_matches_cache
+      @@path_matches_cache ||= Cache.new(Hash.new)
     end
 
     # Return an `Cached`. Must be implemented by the subclass.
@@ -76,12 +80,7 @@ module Sprockets
     def find_asset(path, options = {})
       uri, _ = resolve(path, options.merge(compat: false))
       if uri
-        scheme, _, uri_path, _ = split_file_uri(uri)
-        if scheme == 'file' && !uri_path.start_with?(root)
-          Sprockets::Base.global_static_asset_cache.fetch(uri) { load(uri) }
-        else
-          load(uri)
-        end
+        load(uri)
       end
     end
 
@@ -95,12 +94,8 @@ module Sprockets
       stack = asset.links.to_a
 
       while uri = stack.shift
-        scheme, _, uri_path, _ = split_file_uri(uri)
-        yield asset = if scheme == 'file' && !uri_path.start_with?(root)
-                        Sprockets::Base.global_static_asset_cache.fetch(uri) { load(uri) }
-                      else
-                        load(uri)
-                      end
+        yield asset = load(uri)
+
         stack = asset.links.to_a + stack
       end
 

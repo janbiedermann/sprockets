@@ -1,4 +1,5 @@
 require 'sdbm'
+require 'base64'
 require 'logger'
 require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
@@ -17,7 +18,7 @@ module Sprockets
     #
     class SdbmStore
       # Internal: Default key limit for store.
-      DEFAULT_MAX_SIZE = 25 * 1024 * 1024
+      DEFAULT_MAX_SIZE = 10000
 
       # Internal: Default standard error fatal logger.
       #
@@ -34,12 +35,22 @@ module Sprockets
       # max_size - A Integer of the maximum number of keys the store will hold.
       #            (default: 1000).
       def initialize(root, max_size = DEFAULT_MAX_SIZE, logger = self.class.default_logger)
-        @sdbm = SDBM.open(File.join(root, 'sprockets_cache.sdbm'))
+        start_time = Time.now
+        @root = root
+        @logger = logger
+        @sdbm = SDBM.open(File.join(root, 'sprockets_cache_sdbm'))
         @max_size = max_size
         @gc_size = max_size * 0.90
-        @hash_cache = Cache.new(Hash.new)
-        @logger = logger
-        @size = @sdbm.size
+        @hash_cache = {}
+        @access_cache = {}
+        @sdbm.to_hash.each do |k, v|
+          key = Marshal.load(k)
+          @hash_cache[key] = Base64.decode64(Marshal.load(v))
+          @access_cache[key] = start_time
+        end
+        gc! if @hash_cache.size > @max_size
+        load_time = Time.now.to_f - start_time.to_f
+        puts "Sprockets SDBM Cache - max entries: #{@max_size}, current entries: #{@hash_cache.size}, load time: #{(load_time * 1000).to_i}ms"
       end
 
       # Public: Retrieve value from cache.
@@ -50,18 +61,19 @@ module Sprockets
       #
       # Returns Object or nil or the value is not set.
       def get(key)
-        value = @hash_cache.get(key)
+        value = @hash_cache[key]
+        @access_cache[key] = Time.now
 
         if value.nil?
-          str = @sdbm[key.to_s]
+          str = @sdbm[Marshal.dump(key)]
           if str
             major, minor = str[0], str[1]
             if major && major.ord == Marshal::MAJOR_VERSION &&
               minor && minor.ord <= Marshal::MINOR_VERSION
-              value = Marshal.load(str)
+              value = Base64.decode(Marshal.load(str))
             end
           end
-          @hash_cache.set(key, value) unless value.nil?
+          @hash_cache[key] = value unless value.nil?
         end
         value
       end
@@ -76,11 +88,14 @@ module Sprockets
       # Returns Object value.
       def set(key, value)
         return value unless value
-        @sdbm[key.to_s] = Marshal.dump(value)
-        @hash_cache.set(key, value)
+        puts "set key: #{Marshal.dump(key)}"
+        puts "set value: #{Marshal.dump(value)}"
+        @sdbm.store(Marshal.dump(key), Base64.encode64(Marshal.dump(value)))
+        @hash_cache[key] = value
+        @access_cache[key] = Time.now
 
         # GC if necessary
-        # gc! if size > @max_size
+        gc! if @hash_cache.size > @max_size
 
         value
       end
@@ -94,46 +109,26 @@ module Sprockets
 
       private
 
-      # Internal: Expand object cache key into a short String key.
-      #
-      # The String should be under 250 characters so its compatible with
-      # Memcache.
-      #
-      # key - JSON serializable key
-      #
-      # Returns a String with a length less than 250 characters.
-      def expand_key(key)
-        digest_key = DigestUtils.pack_urlsafe_base64digest(DigestUtils.digest(key))
-        namespace = digest_key[0, 2]
-        "sprockets/v#{VERSION}/#{namespace}/#{digest_key}"
-      end
-
-      def size
-        @sdbm.size
-      end
-
       def gc!
-        # start_time = Time.now
-        #
-        # caches = find_caches
-        # size = compute_size(caches)
-        #
-        # delete_caches, keep_caches = caches.partition { |_, stat|
-        #   deleted = size > @gc_size
-        #   size -= stat.size
-        #   deleted
-        # }
-        #
-        # return if delete_caches.empty?
-        #
-        # FileUtils.remove(delete_caches.map(&:first), force: true)
-        # @size = compute_size(keep_caches)
-        #
-        # @logger.warn do
-        #   secs = Time.now.to_f - start_time.to_f
-        #   "#{self.class}[#{@root}] garbage collected " +
-        #     "#{delete_caches.size} files (#{(secs * 1000).to_i}ms)"
-        # end
+        start_time = Time.now
+        before_size = @hash_cache.size
+
+        sorted_kv = @access_cache.sort_by { |k,v| v.to_i }
+        sorted_kv.reverse!
+
+        while sorted_kv.size > @gc_size
+          kv = sorted_kv.pop
+          @sdbm.delete(Marshal.dump(kv[0]))
+          @hash_cache.delete(kv[0])
+          @access_cache.delete(kv[0])
+        end
+        after_size = @hash_cache.size
+
+        @logger.warn do
+          time_diff = Time.now - start_time
+          "Sprockets SDBM Cache [#{File.join(@root, 'sprockets_cache.gdbm')}] garbage collected " +
+            "#{before_size - after_size} entries (#{(time_diff * 1000).to_i}ms)"
+        end
       end
     end
   end

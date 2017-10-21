@@ -152,40 +152,57 @@ module Sprockets
         accepts
       end
 
-      def path_matches(load_path, logical_name, logical_basename)
-        dirname    = File.dirname(File.join(load_path, logical_name))
-        candidates = dirname_matches(dirname, logical_basename)
-        deps       = file_digest_dependency_set(dirname)
-
-        result = resolve_alternates(load_path, logical_name)
-        result[0].each do |fn|
-          candidates << [fn, parse_path_extnames(fn)[1]]
-        end
-        deps.merge(result[1])
-
-        dirname = File.join(load_path, logical_name)
-        if directory? dirname
-          result = dirname_matches(dirname, "index")
-          candidates.concat(result)
-        end
-
-        deps.merge(file_digest_dependency_set(dirname))
-
-        return candidates.select { |fn, _| file?(fn) }, deps
+    def path_matches(load_path, logical_name, logical_basename)
+      is_in_app = load_path.start_with?(root)
+      unless is_in_app
+        r = Sprockets::Base.global_path_matches_cache.get([load_path, logical_name, logical_basename])
+        return r if r
       end
 
-      def dirname_matches(dirname, basename)
-        candidates = []
-        entries = self.entries(dirname)
-        entries.each do |entry|
-          next unless File.basename(entry).start_with?(basename)
-          name, type, _, _ = parse_path_extnames(entry)
-          if basename == name
-            candidates << [File.join(dirname, entry), type]
-          end
-        end
-        candidates
+      dirname    = File.dirname(File.join(load_path, logical_name))
+      candidates = dirname_matches(dirname, logical_basename)
+      deps       = file_digest_dependency_set(dirname)
+
+      result = resolve_alternates(load_path, logical_name)
+      result[0].each do |fn|
+        candidates << [fn, parse_path_extnames(fn)[1]]
       end
+      deps.merge(result[1])
+
+      dirname = File.join(load_path, logical_name)
+      if directory? dirname
+        result = dirname_matches(dirname, "index")
+        candidates.concat(result)
+      end
+
+      deps.merge(file_digest_dependency_set(dirname))
+      result = candidates.select { |fn, _| file?(fn) }, deps
+      unless is_in_app
+        Sprockets::Base.global_path_matches_cache.set([load_path, logical_name, logical_basename], result)
+      end
+      result
+    end
+
+    def dirname_matches(dirname, basename)
+      is_in_app = dirname.start_with?(root)
+      unless is_in_app
+        r = Sprockets::Base.global_dirname_matches_cache.get([dirname, basename])
+        return r if r
+      end
+      candidates = []
+      entries = self.entries(dirname)
+      entries.each do |entry|
+        next unless File.basename(entry).start_with?(basename)
+        name, type, _, _ = parse_path_extnames(entry)
+        if basename == name
+          candidates << [File.join(dirname, entry), type]
+        end
+      end
+      unless is_in_app
+        Sprockets::Base.global_dirname_matches_cache.set([dirname, basename], candidates)
+      end
+      candidates
+    end
 
       def resolve_alternates(load_path, logical_name)
         return [], Set.new
