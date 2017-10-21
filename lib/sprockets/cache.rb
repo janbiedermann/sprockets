@@ -43,6 +43,7 @@ module Sprockets
     autoload :GdbmStore, 'sprockets/cache/gdbm_store'
     autoload :SdbmStore, 'sprockets/cache/sdbm_store'
     autoload :PStoreStore, 'sprockets/cache/p_store_store'
+    autoload :TokyoStore, 'sprockets/cache/tokyo_store'
 
 
     # Internal: Cache key version for this class. Rarely should have to change

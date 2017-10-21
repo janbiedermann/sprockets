@@ -1,4 +1,4 @@
-require 'dbm'
+require 'tokyocabinet'
 require 'logger'
 require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
@@ -15,7 +15,7 @@ module Sprockets
     #
     #   ActiveSupport::Cache::FileStore
     #
-    class DbmStore
+    class TokyoStore
       # Internal: Default key limit for store.
       DEFAULT_MAX_SIZE = 10000
 
@@ -37,27 +37,25 @@ module Sprockets
         start_time = Time.now
         @root = root
         @logger = logger
-        begin
-          @dbm = DBM.open(File.join(root, 'sprockets_cache_dbm'))
-        rescue
-          FileUtils.rm(File.join(root, 'sprockets_cache_dbm.db'))
-          @dbm = DBM.open(File.join(root, 'sprockets_cache_dbm'))
-        end
+        @tokyo = TokyoCabinet::HDB.new
+        @tokyo.setxmsiz(max_size * 128)
+        @tokyo.tune(max_size * 4)
+        @tokyo.open(File.join(root, 'sprockets_cache.tch'), TokyoCabinet::HDB::OWRITER | TokyoCabinet::HDB::OCREAT)
         at_exit do
-          @dbm.close
+          @tokyo.close
         end
         @max_size = max_size
         @gc_size = max_size * 0.90
         @hash_cache = {}
         @access_cache = {}
-        @dbm.to_hash.each do |k, v|
+        @tokyo.each do |k, v|
           key = Marshal.load(k)
           @hash_cache[key] = Marshal.load(v)
           @access_cache[key] = start_time
         end
         gc! if @hash_cache.size > @max_size
         load_time = Time.now.to_f - start_time.to_f
-        puts "Sprockets DBM Cache - max entries: #{@max_size}, current entries: #{@hash_cache.size}, load time: #{(load_time * 1000).to_i}ms"
+        puts "Sprockets Tokyo Cache - max entries: #{@max_size}, current entries: #{@hash_cache.size}, load time: #{(load_time * 1000).to_i}ms"
       end
 
       # Public: Retrieve value from cache.
@@ -72,7 +70,7 @@ module Sprockets
         @access_cache[key] = Time.now
 
         if value.nil?
-          str = @dbm[Marshal.dump(key)]
+          str = @tokyo.get(Marshal.dump(key))
           if str
             major, minor = str[0], str[1]
             if major && major.ord == Marshal::MAJOR_VERSION &&
@@ -94,8 +92,7 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        return value unless value
-        @dbm[Marshal.dump(key)] = Marshal.dump(value)
+        @tokyo.putasync(Marshal.dump(key), Marshal.dump(value))
         @hash_cache[key] = value
         @access_cache[key] = Time.now
 
@@ -123,7 +120,7 @@ module Sprockets
 
         while sorted_kv.size > @gc_size
           kv = sorted_kv.pop
-          @dbm.delete(Marshal.dump(kv[0]))
+          @tokyo.delete(Marshal.dump(kv[0]))
           @hash_cache.delete(kv[0])
           @access_cache.delete(kv[0])
         end
@@ -131,7 +128,7 @@ module Sprockets
 
         @logger.warn do
           time_diff = Time.now - start_time
-          "Sprockets DBM Cache [#{File.join(@root, 'sprockets_cache.gdbm')}] garbage collected " +
+          "Sprockets Tokyo Cache [#{File.join(@root, 'sprockets_cache.gdbm')}] garbage collected " +
             "#{before_size - after_size} entries (#{(time_diff * 1000).to_i}ms)"
         end
       end

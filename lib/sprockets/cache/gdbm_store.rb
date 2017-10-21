@@ -38,6 +38,9 @@ module Sprockets
         @root = root
         @logger = logger
         @gdbm = GDBM.open(File.join(root, 'sprockets_cache.gdbm'))
+        at_exit do
+          @gdbm.close
+        end
         @max_size = max_size
         @gc_size = max_size * 0.90
         @hash_cache = {}
@@ -86,7 +89,6 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        return value unless value
         @gdbm[Marshal.dump(key)] = Marshal.dump(value)
         @hash_cache[key] = value
         @access_cache[key] = Time.now
