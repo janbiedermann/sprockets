@@ -86,7 +86,6 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        return value unless value
         @gdbm[Marshal.dump(key)] = Marshal.dump(value)
         @hash_cache[key] = value
         @access_cache[key] = Time.now
