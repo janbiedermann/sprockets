@@ -6,6 +6,7 @@ assets, as well as a powerful preprocessor pipeline that allows you to
 write assets in languages like CoffeeScript, Sass and SCSS.
 ## For improved performance with rails and opal-ruby, ruby-hperloop
 
+#### with Gdbm
 In your Gemfile:
 ``` ruby
 gem 'sprockets', git: 'https://github.com/janbiedermann/sprockets', branch: '3.x_perf_proper_mega'
@@ -27,6 +28,38 @@ In your config/development.rb:
 ```
 Needs ruby with gdbm. Adjust the 10000 to your needs. Its not memory kb, its objects.
 
+#### with Tokyo Cabinet
+```
+brew install tokyo-cabinet
+```
+on macOS or on Linux:
+```
+abt-get install libtokyocabinet-dev
+```
+or some equivalent.
+then in your Gemfile:
+```
+gem 'tokyocabinet'
+gem 'sprockets', git: 'https://github.com/janbiedermann/sprockets', branch: '3.x_perf_proper_mega'
+```
+then
+```
+bundle update
+```
+then in your config/development.rb
+```
+  # signature: Tokyotore.new(root_dir, max_entries, logger)
+  # root_dir: directory to put the database file in, another TokyoStore needs another directory
+  # max_entries: maximun entries in the database (NOT size in MB)
+  # logger: the logger
+  config.assets.configure do |env|
+    env.cache = Sprockets::Cache::TokyoStore.new(
+      "#{env.root}/tmp/cache/",
+      10000,
+      env.logger
+    )
+  end
+```
 
 ## Installation
 
