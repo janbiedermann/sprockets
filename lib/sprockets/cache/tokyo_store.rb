@@ -109,7 +109,7 @@ module Sprockets
 
         while @int_cache.size > @gc_size
           k, _ = @int_cache.shift
-          @gdbm.delete(Marshal.dump(k))
+          @tokyo.delete(Marshal.dump(k))
         end
 
         after_size = @int_cache.size
