@@ -40,7 +40,10 @@ module Sprockets
       def set(key, value)
         @cache.delete(key)
         @cache[key] = value
-        value
+      end
+
+      def straight_set(key, value)
+        @cache[key] = value
       end
 
       def size
