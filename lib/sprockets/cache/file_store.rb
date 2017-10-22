@@ -39,7 +39,7 @@ module Sprockets
         @root = root
         @max_size = max_size
         @gc_size = max_size * 0.75
-        @hash_cache = Cache.new(Hash.new)
+        @mem_store = Sprockets::Cache::MemoryStore.new
         @logger = logger
       end
 
@@ -51,7 +51,7 @@ module Sprockets
       #
       # Returns Object or nil or the value is not set.
       def get(key)
-        value = @hash_cache.get(key)
+        value = @mem_store.get(key)
 
         if value.nil?
           path = File.join(@root, "#{expand_key(key)}.cache")
@@ -66,7 +66,7 @@ module Sprockets
               nil
             end
           end
-          @hash_cache.set(key, value) unless value.nil?
+          @mem_store.set(key, value) unless value.nil?
         elsif !value.nil?
           FileUtils.touch(File.join(@root, "#{expand_key(key)}.cache"))
         end
@@ -114,7 +114,7 @@ module Sprockets
           @size = size + f.size unless exists
         end
 
-        @hash_cache.set(key, value)
+        @mem_store.set(key, value)
 
         # GC if necessary
         gc! if size > @max_size

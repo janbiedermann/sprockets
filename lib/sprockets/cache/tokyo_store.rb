@@ -46,16 +46,14 @@ module Sprockets
         end
         @max_size = max_size
         @gc_size = max_size * 0.90
-        @hash_cache = {}
-        @access_cache = {}
+        @int_cache = Sprockets::Cache::IntCache.new
         @tokyo.each do |k, v|
           key = Marshal.load(k)
-          @hash_cache[key] = Marshal.load(v)
-          @access_cache[key] = start_time
+          @int_cache.set(key, Marshal.load(v))
         end
-        gc! if @hash_cache.size > @max_size
+        gc! if @int_cache.size > @max_size
         load_time = Time.now.to_f - start_time.to_f
-        puts "Sprockets Tokyo Cache - max entries: #{@max_size}, current entries: #{@hash_cache.size}, load time: #{(load_time * 1000).to_i}ms"
+        puts "Sprockets Tokyo Cache - max entries: #{@max_size}, current entries: #{@int_cache.size}, load time: #{(load_time * 1000).to_i}ms"
       end
 
       # Public: Retrieve value from cache.
@@ -66,9 +64,7 @@ module Sprockets
       #
       # Returns Object or nil or the value is not set.
       def get(key)
-        value = @hash_cache[key]
-        @access_cache[key] = Time.now
-
+        value = @int_cache.get(key)
         if value.nil?
           str = @tokyo.get(Marshal.dump(key))
           if str
@@ -78,7 +74,7 @@ module Sprockets
               value = Marshal.load(str)
             end
           end
-          @hash_cache[key] = value unless value.nil?
+          @int_cache.set(key, value) unless value.nil?
         end
         value
       end
@@ -93,12 +89,9 @@ module Sprockets
       # Returns Object value.
       def set(key, value)
         @tokyo.putasync(Marshal.dump(key), Marshal.dump(value))
-        @hash_cache[key] = value
-        @access_cache[key] = Time.now
-
+        @int_cache.set(key, value)
         # GC if necessary
-        gc! if @hash_cache.size > @max_size
-
+        gc! if @int_cache.size > @max_size
         value
       end
 
@@ -106,26 +99,21 @@ module Sprockets
       #
       # Returns String.
       def inspect
-        "#<#{self.class} size=#{@hash_cache.size}/#{@max_size}>"
+        "#<#{self.class} size=#{@int_cache.size}/#{@max_size}>"
       end
 
       private
 
       def gc!
         start_time = Time.now
-        before_size = @hash_cache.size
+        before_size = @int_cache.size
 
-        sorted_kv = @access_cache.sort_by { |k,v| v.to_i }
-        sorted_kv.reverse!
-
-        while sorted_kv.size > @gc_size
-          kv = sorted_kv.pop
-          @tokyo.delete(Marshal.dump(kv[0]))
-          @hash_cache.delete(kv[0])
-          @access_cache.delete(kv[0])
+        while @int_cache.size > @gc_size
+          k, _ = @int_cache.shift
+          @gdbm.delete(Marshal.dump(k))
         end
-        after_size = @hash_cache.size
 
+        after_size = @int_cache.size
         @logger.warn do
           time_diff = Time.now - start_time
           "Sprockets Tokyo Cache [#{File.join(@root, 'sprockets_cache.gdbm')}] garbage collected " +

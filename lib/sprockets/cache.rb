@@ -41,6 +41,7 @@ module Sprockets
     autoload :MemoryStore, 'sprockets/cache/memory_store'
     autoload :GdbmStore, 'sprockets/cache/gdbm_store'
     autoload :TokyoStore, 'sprockets/cache/tokyo_store'
+    autoload :IntCache, 'sprockets/cache/int_cache'
 
 
     # Internal: Cache key version for this class. Rarely should have to change
