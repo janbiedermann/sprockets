@@ -46,6 +46,10 @@ module Sprockets
         @cache[key] = value
       end
 
+      def shift
+        @cache.shift
+      end
+
       def size
         @cache.size
       end
