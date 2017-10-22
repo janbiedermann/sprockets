@@ -43,6 +43,10 @@ module Sprockets
         value
       end
 
+      def size
+        @cache.size
+      end
+
       # Public: Pretty inspect
       #
       # Returns String.
