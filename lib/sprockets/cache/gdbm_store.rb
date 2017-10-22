@@ -41,7 +41,7 @@ module Sprockets
         @max_size = max_size
         @gc_size = max_size * 0.90
         @int_cache = Sprockets::Cache::IntCache.new
-        @gdbm.to_hash.each do |k, v|
+        @gdbm.each_pair do |k, v|
           @int_cache.straight_set(Marshal.load(k), Marshal.load(v))
         end
         gc! if @int_cache.size > @max_size
