@@ -14,6 +14,11 @@ module Sprockets
       self.root = root
       self.cache = Cache::MemoryStore.new
       yield self if block_given?
+      @@start_time_i ||= Time.now.to_i
+    end
+
+    def self.start_time_i
+      @@start_time_i
     end
 
     # Returns a cached version of the environment.
