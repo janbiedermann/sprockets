@@ -165,7 +165,7 @@ module Sprockets
 
         dirname = File.join(load_path, logical_name)
         if directory? dirname
-          result = dirname_matches(dirname, "index")
+          result = dirname_matches(dirname, 'index'.reeze)
           candidates.concat(result)
         end
 
