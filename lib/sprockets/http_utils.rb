@@ -56,6 +56,7 @@ module Sprockets
     #
     # Returns Array of matched Strings from available Array or [].
     def find_q_matches(q_values, available, &matcher)
+      return [] if available.empty?
       matcher ||= lambda { |a, b| a == b }
 
       matches = []
@@ -76,8 +77,8 @@ module Sprockets
         end
       end
 
-      matches.sort_by! { |match, quality| -quality }
-      matches.map! { |match, quality| match }
+      matches.sort_by! { |_, quality| -quality }
+      matches.map! { |match, _| match }
       matches
     end
 
