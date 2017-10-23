@@ -125,7 +125,7 @@ module Sprockets
           candidates, deps = path_matches(load_path, logical_name, logical_basename)
           all_deps.merge(deps)
           candidate = find_best_q_match(accepts, candidates) do |c, matcher|
-            match_mime_type?(c[1] || "application/octet-stream", matcher)
+            match_mime_type?(c[1] || 'application/octet-stream'.freeze, matcher)
           end
           return candidate + [all_deps] if candidate
         end
