@@ -46,17 +46,13 @@ module Sprockets
     #
     # Returns a String digest or nil.
     def file_digest(path)
-      if stat = self.stat(path)
-        # Caveat: Digests are cached by the path's current mtime. Its possible
-        # for a files contents to have changed and its mtime to have been
-        # negligently reset thus appearing as if the file hasn't changed on
-        # disk. Also, the mtime is only read to the nearest second. It's
-        # also possible the file was updated more than once in a given second.
-        key = UnloadedAsset.new(path, self).file_digest_key(stat.mtime.to_i)
-        cache.fetch(key) do
-          self.stat_digest(path, stat)
-        end
-      end
+      # Caveat: Digests are cached by the path's current mtime. Its possible
+      # for a files contents to have changed and its mtime to have been
+      # negligently reset thus appearing as if the file hasn't changed on
+      # disk. Also, the mtime is only read to the nearest second. It's
+      # also possible the file was updated more than once in a given second.
+      mdata = self.meta_data(path)
+      mdata[:stat_digest] unless mdata.nil?
     end
 
     # Find asset by logical path or expanded path.
