@@ -34,6 +34,12 @@ module Sprockets
       @cache = Cache.new(cache, logger)
     end
 
+    # Get and set paths where file meta information should only be partially cached
+    attr_reader :check_modified_paths
+    def check_modified_paths=(array_of_paths)
+      @check_modified_paths = array_of_paths.map {|path| path.to_s }
+    end
+
     # Return an `Cached`. Must be implemented by the subclass.
     def cached
       raise NotImplementedError
