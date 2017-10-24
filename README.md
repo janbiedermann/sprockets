@@ -4,63 +4,122 @@ Sprockets is a Ruby library for compiling and serving web assets.
 It features declarative dependency management for JavaScript and CSS
 assets, as well as a powerful preprocessor pipeline that allows you to
 write assets in languages like CoffeeScript, Sass and SCSS.
-## For improved performance with rails and opal-ruby, ruby-hperloop in development environment
-
-#### with Gdbm
+## For improved performance with rails and opal-ruby or ruby-hperloop in development environment
+### Installation
 In your Gemfile:
-``` ruby
+```ruby
 gem 'sprockets', git: 'https://github.com/janbiedermann/sprockets', branch: '3.x_perf_proper_mega'
 ```
+then:
+```bash
+$ bundle update
+```
+### Load paths
+The larger the amount of sprockets load paths, the slower sprockets will become. This effect is minimized by caching information 
+about files in the load paths, but that is only possible for static load paths, where files during application runtime are not expected to change.
+Load paths where files do change, like for example app/assets or app/hyperloop, should be kept at a minimum for good performance.
+It is the total amount of directories within these load paths, that affects performance, as sprockets currently will look in to each of them
+to find some asset, until it has found it. These load paths, to check for modified files during app development, can be configured.
 
 In your config/development.rb:
 ```ruby
+  config.assets.configure do |env|
+    env.check_modified_paths = [Rails.root.join('app', 'assets'), Rails.root.join('app', 'hyperloop')]
+  end
+```
+This must be an array of absolute paths. Default is \[Sprockets::Environment.root\], which in rails defaults to Rails.root.
+
+### Cache with Gdbm
+Depending on your system configuration, GDBM, although being part of ruby StdLib, may not be available.
+If you are not sure, you can quickly check with:
+```bash
+$ irb
+2.4.2 :001 > require 'gdbm'
+ => true
+```
+If it prints "LoadError: cannot load such file -- gdbm" you may then need to add the Gdbm libraries to your system and recompile ruby. For example:
+on macOS:
+```bash
+$ brew install gdbm
+```
+on Linux:
+```bash
+$ apt-get install libgdbm-dev
+```
+
+If GDBM is available, then in your config/development.rb:
+```ruby
   # signature: GdbmStore.new(root_dir, max_entries, logger)
   # root_dir: directory to put the database file in, another GdbmStore needs another directory
-  # max_entries: maximun entries in the database (NOT size in MB)
+  # max_entries: maximum entries in the database (NOT size in MB)
   # logger: the logger
   config.assets.configure do |env|
     env.cache = Sprockets::Cache::GdbmStore.new(
       "#{env.root}/tmp/cache/",
-      10000,
+      25000,
       env.logger
     )
   end
 ```
-Needs ruby with gdbm. Adjust the 10000 to your needs. Its not memory kb, its objects.
+Adjust the 25000 to your needs. Its not memory kb, its amount of objects. 
+25000 objects are the recommended minimum for opal-rails or ruby-hyperloop projects.
+At application start it will inform you about cache state and load the complete cache in to memory:
+```
+Sprockets GDBM Cache - max entries: 25000, current entries: 18628, load time: 2064ms
+```
+The cache will garbage collect objects according to current runtime usage.
 
-#### with Tokyo Cabinet
+### Cache with Tokyo Cabinet
+Install Tokyo Cabinet. On macOS:
+```bash
+$ brew install tokyo-cabinet
 ```
-brew install tokyo-cabinet
-```
-on macOS or on Linux:
-```
-abt-get install libtokyocabinet-dev
+on Linux:
+```bash
+$ abt-get install libtokyocabinet-dev
 ```
 or some equivalent.
 then in your Gemfile:
-```
+```ruby
 gem 'tokyocabinet'
 gem 'sprockets', git: 'https://github.com/janbiedermann/sprockets', branch: '3.x_perf_proper_mega'
 ```
-then
+The order of gems is important, as 'tokyocabinet' is not a dependency of sprockets. Then:
 ```
 bundle update
 ```
 then in your config/development.rb
-```
-  # signature: Tokyotore.new(root_dir, max_entries, logger)
+```ruby
+  # signature: TokyoStore.new(root_dir, max_entries, logger)
   # root_dir: directory to put the database file in, another TokyoStore needs another directory
-  # max_entries: maximun entries in the database (NOT size in MB)
+  # max_entries: maximum entries in the database (NOT size in MB)
   # logger: the logger
   config.assets.configure do |env|
     env.cache = Sprockets::Cache::TokyoStore.new(
       "#{env.root}/tmp/cache/",
-      10000,
+      25000,
       env.logger
     )
   end
 ```
-
+Adjust the 25000 to your needs. Its not memory kb, its amount of objects. 
+25000 objects are the recommended minimum for opal-rails or ruby-hyperloop projects.
+At application start it will inform you about cache state and load the complete cache in to memory:
+```
+Sprockets Tokyo Cache - max entries: 25000, current entries: 18055, load time: 561ms
+```
+The cache will garbage collect objects according to current runtime usage.
+### Configuration example with path adjustment and cache
+```ruby
+  config.assets.configure do |env|
+    env.cache = Sprockets::Cache::TokyoStore.new(
+      "#{env.root}/tmp/cache/",
+      25000,
+      env.logger
+    )
+    env.check_modified_paths = [Rails.root.join('app', 'assets'), Rails.root.join('app', 'hyperloop')]
+  end
+```
 ## Installation
 
 Install Sprockets from RubyGems:
