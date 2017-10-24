@@ -286,8 +286,7 @@ module Sprockets
     # meta_data: see below in update_meta_data
 
     def meta_data(path)
-      # just to indicate the type of information
-      # file-meta-data:version:path, update version if meta_data contents are changed
+      # file-meta-data:version:path, update version if meta_data hash contents are changed to invalidate existing cached data
       key = "file-meta-data:1:#{path}"
       meta_data = cache.get(key)
       if meta_data && !meta_data[:file_exist] && meta_data[:last_visited_i] < Sprockets::Environment.start_time_i
@@ -329,7 +328,7 @@ module Sprockets
           file_digest_uri: URIUtils.build_file_digest_uri(path),
           mtime: fstat.mtime,
           size: fstat.size,
-          static: !path.start_with?(root),
+          static: static_path?(path),
           stat_digest: self.stat_digest_dir(path, fstat, dentries),
           last_visited_i: Time.now.to_i,
           exist: true
@@ -351,6 +350,13 @@ module Sprockets
         cache.set(key, meta_data)
       end
       meta_data
+    end
+
+    def static_path?(path)
+      self.check_modified_paths.each do |mod_path|
+        return false if path.start_with?(mod_path)
+      end
+      true
     end
   end
 end
