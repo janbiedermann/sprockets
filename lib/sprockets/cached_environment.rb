@@ -15,6 +15,7 @@ module Sprockets
       initialize_configuration(environment)
 
       @cache   = environment.cache
+      @check_modified_paths = environment.check_modified_paths
       @stats   = Hash.new { |h, k| h[k] = _stat(k) }
       @entries = Hash.new { |h, k| h[k] = _entries(k) }
       @uris    = Hash.new { |h, k| h[k] = _load(k) }
