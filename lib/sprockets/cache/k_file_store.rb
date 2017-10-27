@@ -4,7 +4,6 @@ require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
 require 'sprockets/cache/memory_store'
 require 'zlib'
-require 'eventmachine'
 
 module Sprockets
   class Cache
@@ -43,7 +42,6 @@ module Sprockets
         @mem_store = Sprockets::Cache::MemoryStore.new(max_size)
         @logger = logger
         @size = find_caches.size
-        EventMachine.run
       end
 
       # Public: Retrieve value from cache.
@@ -71,7 +69,7 @@ module Sprockets
           end
           @mem_store.set(key, value) unless value.nil?
         elsif !value.nil?
-          EventMachine.defer { FileUtils.touch(File.join(@root, "#{expand_key(key)}.cache")) }
+          FileUtils.touch(File.join(@root, "#{expand_key(key)}.cache"))
         end
 
         value
@@ -112,11 +110,9 @@ module Sprockets
         end
 
         # Write data
-        EventMachine.defer do
-          PathUtils.atomic_write(path) do |f|
-            f.write(raw)
-           @size += 1 unless exists
-          end
+        PathUtils.atomic_write(path) do |f|
+          f.write(raw)
+         @size += 1 unless exists
         end
 
         @mem_store.set(key, value)
