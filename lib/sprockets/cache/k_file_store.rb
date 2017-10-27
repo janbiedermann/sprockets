@@ -19,7 +19,7 @@ module Sprockets
     #
     class KFileStore
       # Internal: Default key limit for store.
-      DEFAULT_MAX_SIZE = 25 * 1024 * 1024
+      DEFAULT_MAX_SIZE = 25000
 
       # Internal: Default standard error fatal logger.
       #
