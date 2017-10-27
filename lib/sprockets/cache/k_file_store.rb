@@ -41,6 +41,7 @@ module Sprockets
         @gc_size = max_size * 0.75
         @mem_store = Sprockets::Cache::MemoryStore.new(max_size)
         @logger = logger
+        @size = find_caches.size
       end
 
       # Public: Retrieve value from cache.
@@ -111,7 +112,7 @@ module Sprockets
         # Write data
         PathUtils.atomic_write(path) do |f|
           f.write(raw)
-          @size += 1 unless exists
+         @size += 1 unless exists
         end
 
         @mem_store.set(key, value)
@@ -157,10 +158,6 @@ module Sprockets
           stats << [filename, stat] if stat
           stats
         }.sort_by { |_, stat| stat.mtime.to_i }
-      end
-
-      def size
-        @size ||= find_caches.size
       end
 
       def safe_mtime(fn)
