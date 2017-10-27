@@ -43,6 +43,7 @@ module Sprockets
         @mem_store = Sprockets::Cache::MemoryStore.new(max_size)
         @logger = logger
         @size = find_caches.size
+        EventMachine.run
       end
 
       # Public: Retrieve value from cache.
