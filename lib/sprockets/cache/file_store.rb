@@ -39,7 +39,7 @@ module Sprockets
         @root = root
         @max_size = max_size
         @gc_size = max_size * 0.75
-        @mem_store = Sprockets::Cache::MemoryStore.new
+        @mem_store = Sprockets::Cache::MemoryStore.new(max_size / 1000)
         @logger = logger
       end
 
