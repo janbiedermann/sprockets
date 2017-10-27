@@ -118,7 +118,7 @@ module Sprockets
         @mem_store.set(key, value)
 
         # GC if necessary
-        gc! if size > @max_size
+        gc! if @size > @max_size
 
         value
       end
