@@ -15,7 +15,7 @@ module Sprockets
     #
     #   ActiveSupport::Cache::FileStore
     #
-    class TokyoStore
+    class DalliStore
       # Internal: Default key limit for store.
       DEFAULT_MAX_SIZE = 40000
 
