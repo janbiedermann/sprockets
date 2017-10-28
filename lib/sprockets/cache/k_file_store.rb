@@ -36,12 +36,15 @@ module Sprockets
       # max_size - A Integer of the maximum number of keys the store will hold.
       #            (default: 1000).
       def initialize(root, max_size = DEFAULT_MAX_SIZE, logger = self.class.default_logger)
+        start_time = Time.now
         @root = root
         @max_size = max_size
         @gc_size = max_size * 0.75
         @mem_store = Sprockets::Cache::MemoryStore.new(max_size)
         @logger = logger
         @size = find_caches.size
+        load_time = Time.now.to_f - start_time.to_f
+        puts "Sprockets KFile Cache - max entries: #{@max_size}, current entries: #{@size}, init time: #{(load_time * 1000).to_i}ms"
       end
 
       # Public: Retrieve value from cache.
