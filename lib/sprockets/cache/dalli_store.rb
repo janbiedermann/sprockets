@@ -32,7 +32,7 @@ module Sprockets
       #            (default: 1000).
       def initialize(host = 'localhost', port = '11211', logger = self.class.default_logger)
         @logger = logger
-        @dalli = Dalli::Client.new("#{host}:#{port}")
+        @dalli = Dalli::Client.new("#{host}:#{port}", value_max_bytes: 20 * 1024 * 1024)
         puts "Sprockets Dalli Cache stats: #{@dalli.stats}"
       end
 
