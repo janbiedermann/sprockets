@@ -66,8 +66,6 @@ module Sprockets
       def inspect
         "#<#{self.class}>"
       end
-
-      end
     end
   end
 end
