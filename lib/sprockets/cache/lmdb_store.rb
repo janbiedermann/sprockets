@@ -64,7 +64,7 @@ module Sprockets
       def get(key)
         value = @int_cache.get(key)
         if value.nil?
-          str = @lmdb.get(Marshal.dump(key))
+          str = @lmdb.get(expand_key(key))
           if str
             major, minor = str[0], str[1]
             if major && major.ord == Marshal::MAJOR_VERSION &&
@@ -86,7 +86,7 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        @lmdb.put(Marshal.dump(key), Marshal.dump(value))
+        @lmdb.put(expand_key(key), Marshal.dump(value))
         @int_cache.set(key, value)
         # GC if necessary
         gc! if @int_cache.size > @max_size
