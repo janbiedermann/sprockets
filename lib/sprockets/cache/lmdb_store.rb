@@ -102,6 +102,12 @@ module Sprockets
 
       private
 
+      def expand_key(key)
+        digest_key = DigestUtils.pack_urlsafe_base64digest(DigestUtils.digest(key))
+        namespace = digest_key[0, 2]
+        "sprockets/v#{VERSION}/#{namespace}/#{digest_key}"
+      end
+
       def gc!
         start_time = Time.now
         before_size = @int_cache.size
