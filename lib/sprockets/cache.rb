@@ -41,6 +41,7 @@ module Sprockets
     autoload :KFileStore,  'sprockets/cache/k_file_store'
     autoload :MemoryStore, 'sprockets/cache/memory_store'
     autoload :GdbmStore,   'sprockets/cache/gdbm_store'
+    autoload :LmdbStore,   'sprockets/cache/lmdb_store'
     autoload :TokyoStore,  'sprockets/cache/tokyo_store'
     autoload :IntCache,    'sprockets/cache/int_cache'
 
