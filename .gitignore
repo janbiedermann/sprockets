@@ -7,3 +7,4 @@ docs
 pkg
 tmp
 .DS_Store
+.idea
