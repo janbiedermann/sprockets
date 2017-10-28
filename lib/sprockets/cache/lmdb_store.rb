@@ -38,7 +38,7 @@ module Sprockets
         @root = root
         @logger = logger
         Dir.mkdir(root) unless Dir.exist?(root)
-        env = LMDB.new(root, mapsize: 250.mb, writemap: true, mapasync: true)
+        env = LMDB.new(root, mapsize: 250 * 1024 * 1024, writemap: true, mapasync: true)
         @lmdb = env.database('sprockets_cache_db')
         at_exit do
           env.close
