@@ -84,7 +84,7 @@ module Sprockets
       #
       # Returns Object value.
       def set(key, value)
-        @level.putasync(Marshal.dump(key), Marshal.dump(value))
+        @level.put(Marshal.dump(key), Marshal.dump(value))
         @int_cache.set(key, value)
         # GC if necessary
         gc! if @int_cache.size > @max_size
