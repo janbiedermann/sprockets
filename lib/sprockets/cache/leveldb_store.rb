@@ -15,7 +15,7 @@ module Sprockets
     #
     #   ActiveSupport::Cache::FileStore
     #
-    class Leveldb_Store
+    class LeveldbStore
       # Internal: Default key limit for store.
       DEFAULT_MAX_SIZE = 10000
 
