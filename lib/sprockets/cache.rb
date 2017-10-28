@@ -42,6 +42,7 @@ module Sprockets
     autoload :MemoryStore, 'sprockets/cache/memory_store'
     autoload :GdbmStore,   'sprockets/cache/gdbm_store'
     autoload :LeveldbStore,'sprockets/cache/leveldb_store'
+    autoload :RawLeveldbStore,'sprockets/cache/raw_leveldb_store'
     autoload :LmdbStore,   'sprockets/cache/lmdb_store'
     autoload :TokyoStore,  'sprockets/cache/tokyo_store'
     autoload :IntCache,    'sprockets/cache/int_cache'
