@@ -37,6 +37,7 @@ module Sprockets
   #
   class Cache
     # Builtin cache stores.
+    autoload :DalliStore,  'sprockets/cache/dalli_store'
     autoload :FileStore,   'sprockets/cache/file_store'
     autoload :KFileStore,  'sprockets/cache/k_file_store'
     autoload :MemoryStore, 'sprockets/cache/memory_store'
