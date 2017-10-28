@@ -1,4 +1,4 @@
-require 'tokyocabinet'
+require 'dalli'
 require 'logger'
 require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
@@ -15,10 +15,7 @@ module Sprockets
     #
     #   ActiveSupport::Cache::FileStore
     #
-    class TokyoStore
-      # Internal: Default key limit for store.
-      DEFAULT_MAX_SIZE = 40000
-
+    class RawDalliStore
       # Internal: Default standard error fatal logger.
       #
       # Returns a Logger.
@@ -36,9 +33,7 @@ module Sprockets
       def initialize(host = 'localhost', port = '11211', logger = self.class.default_logger)
         @logger = logger
         @dalli = Dalli::Client.new("#{host}:#{port}", value_max_bytes: 20 * 1024 * 1024)
-        @max_size = DEFAULT_MAX_SIZE
-        @int_cache = Sprockets::Cache::IntCache.new
-        puts "Sprockets Dalli Cache"
+        puts "Sprockets Raw Dalli Cache"
       end
 
       # Public: Retrieve value from cache.
@@ -49,12 +44,7 @@ module Sprockets
       #
       # Returns Object or nil or the value is not set.
       def get(key)
-        value = @int_cache.get(key)
-        if value.nil?
-          value = @dalli.get(key)
-          @int_cache.set(key, value) unless value.nil?
-        end
-        value
+        @dalli.get(key)
       end
 
       # Public: Set a key and value in the cache.
@@ -67,9 +57,6 @@ module Sprockets
       # Returns Object value.
       def set(key, value)
         @dalli.set(key, value)
-        @int_cache.set(key, value)
-        # GC if necessary
-        @int_cache.shift if @int_cache.size > @max_size
         value
       end
 
@@ -77,7 +64,7 @@ module Sprockets
       #
       # Returns String.
       def inspect
-        "#<#{self.class} size=#{@int_cache.size}/#{@max_size}>"
+        "#<#{self.class}>"
       end
     end
   end
