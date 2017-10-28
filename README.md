@@ -30,6 +30,8 @@ In your config/development.rb:
 This must be an array of absolute paths. Default is \[Sprockets::Environment.root\], which in rails defaults to Rails.root.
 
 ### Cache with Gdbm
+**Gdbm allows for only one process at a time to access the cache!**
+
 Depending on your system configuration, GDBM, although being part of ruby StdLib, may not be available.
 If you are not sure, you can quickly check with:
 ```bash
@@ -70,6 +72,8 @@ Sprockets GDBM Cache - max entries: 25000, current entries: 18628, load time: 20
 The cache will garbage collect objects according to current runtime usage.
 
 ### Cache with Tokyo Cabinet
+**Tokyo Cabinet allows for only one process at a time to access the cache!**
+
 Install Tokyo Cabinet. On macOS:
 ```bash
 $ brew install tokyo-cabinet
