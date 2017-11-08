@@ -1,4 +1,4 @@
-require 'tokyocabinet'
+require 'dalli'
 require 'logger'
 require 'sprockets/encoding_utils'
 require 'sprockets/path_utils'
